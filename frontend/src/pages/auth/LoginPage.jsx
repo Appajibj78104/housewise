@@ -276,18 +276,7 @@ const LoginPage = () => {
             </div>
           </div>
 
-          {/* Demo Accounts */}
-          <div className="mt-6 p-4 bg-gray-700 border border-gray-600 rounded-md">
-            <h4 className="text-sm font-medium text-gray-300 mb-2">Demo Accounts:</h4>
-            <div className="space-y-1 text-xs text-gray-400">
-              <div><strong className="text-gray-300">Admin:</strong> admin@example.com / ChangeMe123!</div>
-              <div><strong className="text-gray-300">Provider:</strong> priya.sharma@example.com / password123</div>
-              <div><strong className="text-gray-300">Customer:</strong> customer@example.com / password123</div>
-            </div>
-            <div className="mt-2 text-xs text-gray-500">
-              Use admin credentials to access the admin panel with full platform management capabilities.
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
