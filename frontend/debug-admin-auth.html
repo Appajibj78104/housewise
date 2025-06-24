@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Authentication Debugger</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .token-display { word-break: break-all; font-family: monospace; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Admin Authentication Debugger</h1>
+        
+        <div class="debug-section info">
+            <h3>Current Authentication State</h3>
+            <table>
+                <tr><th>Token Type</th><th>Exists</th><th>Preview</th><th>Valid JSON</th></tr>
+                <tr>
+                    <td>Admin Token</td>
+                    <td id="adminTokenExists">-</td>
+                    <td id="adminTokenPreview" class="token-display">-</td>
+                    <td id="adminTokenValid">-</td>
+                </tr>
+                <tr>
+                    <td>Admin User</td>
+                    <td id="adminUserExists">-</td>
+                    <td id="adminUserPreview">-</td>
+                    <td id="adminUserValid">-</td>
+                </tr>
+                <tr>
+                    <td>Regular Token</td>
+                    <td id="regularTokenExists">-</td>
+                    <td id="regularTokenPreview" class="token-display">-</td>
+                    <td id="regularTokenValid">-</td>
+                </tr>
+                <tr>
+                    <td>Regular User</td>
+                    <td id="regularUserExists">-</td>
+                    <td id="regularUserPreview">-</td>
+                    <td id="regularUserValid">-</td>
+                </tr>
+            </table>
+            <button onclick="checkAuthState()">🔍 Check Auth State</button>
+            <button onclick="autoRefresh()">🔄 Auto Refresh (5s)</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>Admin Login Test</h3>
+            <button onclick="testAdminLogin()">🔑 Test Admin Login</button>
+            <button onclick="testAdminProtectedRoute()">🛡️ Test Admin Protected Route</button>
+            <div id="adminLoginResult" class="log"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>Admin Logout Test</h3>
+            <button onclick="testAdminLogout()">🚪 Test Admin Logout</button>
+            <button onclick="simulateAdminLogout()">🧪 Simulate Admin Logout</button>
+            <div id="adminLogoutResult" class="log"></div>
+        </div>
+
+        <div class="debug-section warning">
+            <h3>Token Management</h3>
+            <button onclick="clearAllTokens()" class="danger">🗑️ Clear All Tokens</button>
+            <button onclick="clearAdminTokens()" class="danger">🗑️ Clear Admin Tokens Only</button>
+            <button onclick="clearRegularTokens()" class="danger">🗑️ Clear Regular Tokens Only</button>
+            <div id="tokenManagementResult" class="log"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>Navigation Test</h3>
+            <button onclick="testLoginPageAccess()">📄 Test Login Page Access</button>
+            <button onclick="testAdminDashboardAccess()">🏠 Test Admin Dashboard Access</button>
+            <div id="navigationResult" class="log"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>Console Logs Monitor</h3>
+            <button onclick="startLogMonitoring()">📊 Start Log Monitoring</button>
+            <button onclick="clearLogs()">🧹 Clear Logs</button>
+            <div id="consoleLogsResult" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let autoRefreshInterval = null;
+        let logMonitoringActive = false;
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function checkAuthState() {
+            // Check admin tokens
+            const adminToken = localStorage.getItem('adminToken');
+            const adminUser = localStorage.getItem('adminUser');
+            
+            document.getElementById('adminTokenExists').textContent = adminToken ? '✅ Yes' : '❌ No';
+            document.getElementById('adminTokenPreview').textContent = adminToken ? adminToken.substring(0, 30) + '...' : 'None';
+            document.getElementById('adminTokenValid').textContent = adminToken ? '✅ Valid' : '❌ Invalid';
+            
+            document.getElementById('adminUserExists').textContent = adminUser ? '✅ Yes' : '❌ No';
+            
+            if (adminUser) {
+                try {
+                    const userData = JSON.parse(adminUser);
+                    document.getElementById('adminUserPreview').textContent = `${userData.name} (${userData.role})`;
+                    document.getElementById('adminUserValid').textContent = '✅ Valid JSON';
+                } catch (e) {
+                    document.getElementById('adminUserPreview').textContent = 'Invalid JSON';
+                    document.getElementById('adminUserValid').textContent = '❌ Invalid JSON';
+                }
+            } else {
+                document.getElementById('adminUserPreview').textContent = 'None';
+                document.getElementById('adminUserValid').textContent = '❌ No Data';
+            }
+
+            // Check regular tokens
+            const regularToken = localStorage.getItem('token');
+            const regularUser = localStorage.getItem('user');
+            
+            document.getElementById('regularTokenExists').textContent = regularToken ? '✅ Yes' : '❌ No';
+            document.getElementById('regularTokenPreview').textContent = regularToken ? regularToken.substring(0, 30) + '...' : 'None';
+            document.getElementById('regularTokenValid').textContent = regularToken ? '✅ Valid' : '❌ Invalid';
+            
+            document.getElementById('regularUserExists').textContent = regularUser ? '✅ Yes' : '❌ No';
+            
+            if (regularUser) {
+                try {
+                    const userData = JSON.parse(regularUser);
+                    document.getElementById('regularUserPreview').textContent = `${userData.name} (${userData.role})`;
+                    document.getElementById('regularUserValid').textContent = '✅ Valid JSON';
+                } catch (e) {
+                    document.getElementById('regularUserPreview').textContent = 'Invalid JSON';
+                    document.getElementById('regularUserValid').textContent = '❌ Invalid JSON';
+                }
+            } else {
+                document.getElementById('regularUserPreview').textContent = 'None';
+                document.getElementById('regularUserValid').textContent = '❌ No Data';
+            }
+        }
+
+        async function testAdminLogin() {
+            const resultDiv = document.getElementById('adminLoginResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('adminLoginResult', '🔑 Testing admin login...');
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@housewise.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.data.isAdmin) {
+                    log('adminLoginResult', `✅ Admin login successful! Status: ${response.status}`);
+                    log('adminLoginResult', `   Admin token received: ${!!data.data.token}`);
+                    log('adminLoginResult', `   User role: ${data.data.user.role}`);
+                    log('adminLoginResult', `   Is admin: ${data.data.isAdmin}`);
+                    
+                    // Store admin tokens
+                    localStorage.setItem('adminToken', data.data.token);
+                    localStorage.setItem('adminUser', JSON.stringify(data.data.user));
+                    
+                    checkAuthState();
+                } else {
+                    log('adminLoginResult', `❌ Admin login failed! Status: ${response.status}`);
+                    log('adminLoginResult', `   Error: ${data.message}`);
+                }
+            } catch (error) {
+                log('adminLoginResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        async function testAdminProtectedRoute() {
+            const resultDiv = document.getElementById('adminLoginResult');
+            
+            try {
+                log('adminLoginResult', '🛡️ Testing admin protected route...');
+                
+                const adminToken = localStorage.getItem('adminToken');
+                if (!adminToken) {
+                    log('adminLoginResult', '❌ No admin token found');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/admin/dashboard-stats`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('adminLoginResult', `✅ Admin protected route access successful! Status: ${response.status}`);
+                } else {
+                    log('adminLoginResult', `❌ Admin protected route access failed! Status: ${response.status}`);
+                }
+            } catch (error) {
+                log('adminLoginResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        async function testAdminLogout() {
+            const resultDiv = document.getElementById('adminLogoutResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('adminLogoutResult', '🚪 Testing admin logout...');
+                
+                const adminToken = localStorage.getItem('adminToken');
+                if (!adminToken) {
+                    log('adminLogoutResult', '❌ No admin token found for logout');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('adminLogoutResult', `✅ Admin logout API successful! Status: ${response.status}`);
+                } else {
+                    log('adminLogoutResult', `⚠️ Admin logout API failed but continuing... Status: ${response.status}`);
+                }
+                
+                // Clear admin storage
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                
+                log('adminLogoutResult', '✅ Admin tokens cleared from localStorage');
+                checkAuthState();
+                
+            } catch (error) {
+                log('adminLogoutResult', `💥 Network error: ${error.message}`);
+                // Still clear local storage
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                log('adminLogoutResult', '✅ Admin tokens cleared despite error');
+                checkAuthState();
+            }
+        }
+
+        function simulateAdminLogout() {
+            const resultDiv = document.getElementById('adminLogoutResult');
+            resultDiv.textContent = '';
+            
+            log('adminLogoutResult', '🧪 Simulating admin logout (frontend only)...');
+            
+            // Clear all tokens
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            log('adminLogoutResult', '✅ All tokens cleared from localStorage');
+            log('adminLogoutResult', '✅ Simulated logout completed');
+            
+            checkAuthState();
+        }
+
+        function clearAllTokens() {
+            localStorage.clear();
+            log('tokenManagementResult', '🗑️ All localStorage cleared');
+            checkAuthState();
+        }
+
+        function clearAdminTokens() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            log('tokenManagementResult', '🗑️ Admin tokens cleared');
+            checkAuthState();
+        }
+
+        function clearRegularTokens() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            log('tokenManagementResult', '🗑️ Regular tokens cleared');
+            checkAuthState();
+        }
+
+        function testLoginPageAccess() {
+            log('navigationResult', '📄 Testing login page access...');
+            log('navigationResult', `   Current URL: ${window.location.href}`);
+            log('navigationResult', '   Opening login page in new tab...');
+            window.open('/login', '_blank');
+        }
+
+        function testAdminDashboardAccess() {
+            log('navigationResult', '🏠 Testing admin dashboard access...');
+            log('navigationResult', `   Current URL: ${window.location.href}`);
+            log('navigationResult', '   Opening admin dashboard in new tab...');
+            window.open('/admin/dashboard', '_blank');
+        }
+
+        function autoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                log('consoleLogsResult', '🔄 Auto refresh stopped');
+                return;
+            }
+            
+            autoRefreshInterval = setInterval(() => {
+                checkAuthState();
+                log('consoleLogsResult', '🔄 Auto refreshed auth state');
+            }, 5000);
+            
+            log('consoleLogsResult', '🔄 Auto refresh started (every 5 seconds)');
+        }
+
+        function startLogMonitoring() {
+            if (logMonitoringActive) {
+                logMonitoringActive = false;
+                log('consoleLogsResult', '📊 Log monitoring stopped');
+                return;
+            }
+            
+            logMonitoringActive = true;
+            log('consoleLogsResult', '📊 Log monitoring started - check browser console');
+            
+            // Override console methods to capture logs
+            const originalLog = console.log;
+            const originalError = console.error;
+            
+            console.log = function(...args) {
+                if (logMonitoringActive) {
+                    log('consoleLogsResult', `LOG: ${args.join(' ')}`);
+                }
+                originalLog.apply(console, args);
+            };
+            
+            console.error = function(...args) {
+                if (logMonitoringActive) {
+                    log('consoleLogsResult', `ERROR: ${args.join(' ')}`);
+                }
+                originalError.apply(console, args);
+            };
+        }
+
+        function clearLogs() {
+            document.getElementById('consoleLogsResult').textContent = '';
+        }
+
+        // Initialize
+        checkAuthState();
+    </script>
+</body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Authentication Flow Test</h1>
+        
+        <div class="test-section info">
+            <h3>Test Configuration</h3>
+            <p><strong>API Base URL:</strong> <span id="apiUrl">http://localhost:5000/api</span></p>
+            <p><strong>Test User:</strong> testprovider@example.com</p>
+            <p><strong>Current Token:</strong> <span id="currentToken">None</span></p>
+            <p><strong>Auth State:</strong> <span id="authState">Not authenticated</span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>1. Test Signup</h3>
+            <button onclick="testSignup()">Test Service Provider Signup</button>
+            <div id="signupResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Test Login</h3>
+            <button onclick="testLogin()">Test Service Provider Login</button>
+            <div id="loginResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Test Protected Route</h3>
+            <button onclick="testProtectedRoute()">Test /auth/me Endpoint</button>
+            <div id="protectedResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Test Token Storage</h3>
+            <button onclick="testTokenStorage()">Check LocalStorage Token</button>
+            <button onclick="clearTokenStorage()">Clear LocalStorage</button>
+            <div id="storageResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Test Logout</h3>
+            <button onclick="testLogout()">Test Logout</button>
+            <div id="logoutResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. Test Invalid Access</h3>
+            <button onclick="testInvalidAccess()">Test Access Without Token</button>
+            <div id="invalidResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Complete Flow Test</h3>
+            <button onclick="runCompleteTest()">Run Complete Authentication Flow</button>
+            <div id="completeResult" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        const testUser = {
+            name: 'Test Provider Frontend',
+            email: 'testprovider@example.com',
+            password: 'testpassword123',
+            phone: '9999888777',
+            role: 'housewife',
+            address: {
+                street: '123 Test Street',
+                city: 'Test City',
+                state: 'Test State',
+                pincode: '123456'
+            }
+        };
+
+        function updateAuthState() {
+            const token = localStorage.getItem('token');
+            document.getElementById('currentToken').textContent = token ? token.substring(0, 20) + '...' : 'None';
+            document.getElementById('authState').textContent = token ? 'Authenticated' : 'Not authenticated';
+        }
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        async function testSignup() {
+            const resultDiv = document.getElementById('signupResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('signupResult', '🚀 Testing signup...');
+                
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testUser)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('signupResult', `✅ Signup successful! Status: ${response.status}`);
+                    log('signupResult', `   User ID: ${data.data.user._id}`);
+                    log('signupResult', `   Token received: ${!!data.data.token}`);
+                    log('signupResult', `   User role: ${data.data.user.role}`);
+                    
+                    // Store token
+                    if (data.data.token) {
+                        localStorage.setItem('token', data.data.token);
+                        localStorage.setItem('user', JSON.stringify(data.data.user));
+                        updateAuthState();
+                    }
+                } else {
+                    log('signupResult', `❌ Signup failed! Status: ${response.status}`);
+                    log('signupResult', `   Error: ${data.message}`);
+                }
+            } catch (error) {
+                log('signupResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        async function testLogin() {
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('loginResult', '🔑 Testing login...');
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: testUser.email,
+                        password: testUser.password
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('loginResult', `✅ Login successful! Status: ${response.status}`);
+                    log('loginResult', `   Token received: ${!!data.data.token}`);
+                    log('loginResult', `   User role: ${data.data.user.role}`);
+                    log('loginResult', `   User name: ${data.data.user.name}`);
+                    
+                    // Store token
+                    if (data.data.token) {
+                        localStorage.setItem('token', data.data.token);
+                        localStorage.setItem('user', JSON.stringify(data.data.user));
+                        updateAuthState();
+                    }
+                } else {
+                    log('loginResult', `❌ Login failed! Status: ${response.status}`);
+                    log('loginResult', `   Error: ${data.message}`);
+                }
+            } catch (error) {
+                log('loginResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        async function testProtectedRoute() {
+            const resultDiv = document.getElementById('protectedResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('protectedResult', '🛡️ Testing protected route...');
+                
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('protectedResult', '❌ No token found in localStorage');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('protectedResult', `✅ Protected route access successful! Status: ${response.status}`);
+                    log('protectedResult', `   User name: ${data.data.user.name}`);
+                    log('protectedResult', `   User email: ${data.data.user.email}`);
+                    log('protectedResult', `   User role: ${data.data.user.role}`);
+                } else {
+                    log('protectedResult', `❌ Protected route access failed! Status: ${response.status}`);
+                    log('protectedResult', `   Error: ${data.message}`);
+                }
+            } catch (error) {
+                log('protectedResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        function testTokenStorage() {
+            const resultDiv = document.getElementById('storageResult');
+            resultDiv.textContent = '';
+            
+            log('storageResult', '💾 Checking token storage...');
+            
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            log('storageResult', `   Token exists: ${!!token}`);
+            if (token) {
+                log('storageResult', `   Token preview: ${token.substring(0, 30)}...`);
+            }
+            
+            log('storageResult', `   User data exists: ${!!user}`);
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('storageResult', `   User name: ${userData.name}`);
+                    log('storageResult', `   User role: ${userData.role}`);
+                } catch (e) {
+                    log('storageResult', `   ❌ Invalid user data format`);
+                }
+            }
+            
+            updateAuthState();
+        }
+
+        function clearTokenStorage() {
+            const resultDiv = document.getElementById('storageResult');
+            resultDiv.textContent = '';
+            
+            log('storageResult', '🧹 Clearing token storage...');
+            
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            log('storageResult', '✅ Token storage cleared');
+            updateAuthState();
+        }
+
+        async function testLogout() {
+            const resultDiv = document.getElementById('logoutResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('logoutResult', '🚪 Testing logout...');
+                
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('logoutResult', '❌ No token found for logout');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('logoutResult', `✅ Logout API successful! Status: ${response.status}`);
+                } else {
+                    log('logoutResult', `⚠️ Logout API failed but continuing... Status: ${response.status}`);
+                }
+                
+                // Clear local storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                updateAuthState();
+                
+                log('logoutResult', '✅ Local storage cleared');
+                log('logoutResult', '✅ Logout completed');
+                
+            } catch (error) {
+                log('logoutResult', `💥 Network error: ${error.message}`);
+                // Still clear local storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                updateAuthState();
+                log('logoutResult', '✅ Local storage cleared despite error');
+            }
+        }
+
+        async function testInvalidAccess() {
+            const resultDiv = document.getElementById('invalidResult');
+            resultDiv.textContent = '';
+            
+            try {
+                log('invalidResult', '🚫 Testing access without token...');
+                
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('invalidResult', `❌ Access granted without token (this should not happen)`);
+                } else {
+                    log('invalidResult', `✅ Access properly denied! Status: ${response.status}`);
+                }
+            } catch (error) {
+                log('invalidResult', `💥 Network error: ${error.message}`);
+            }
+        }
+
+        async function runCompleteTest() {
+            const resultDiv = document.getElementById('completeResult');
+            resultDiv.textContent = '';
+            
+            log('completeResult', '🚀 Starting complete authentication flow test...\n');
+            
+            // Clear storage first
+            localStorage.clear();
+            updateAuthState();
+            log('completeResult', '1. ✅ Cleared storage');
+            
+            // Test signup
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testSignup();
+            log('completeResult', '2. ✅ Signup test completed');
+            
+            // Test login
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testLogin();
+            log('completeResult', '3. ✅ Login test completed');
+            
+            // Test protected route
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testProtectedRoute();
+            log('completeResult', '4. ✅ Protected route test completed');
+            
+            // Test logout
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testLogout();
+            log('completeResult', '5. ✅ Logout test completed');
+            
+            // Test invalid access
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testInvalidAccess();
+            log('completeResult', '6. ✅ Invalid access test completed');
+            
+            log('completeResult', '\n🎉 Complete authentication flow test finished!');
+        }
+
+        // Initialize
+        updateAuthState();
+    </script>
+</body>
+</html>

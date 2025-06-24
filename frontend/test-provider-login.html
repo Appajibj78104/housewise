@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Provider Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1f2937;
+            color: white;
+        }
+        .container {
+            background-color: #374151;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #4b5563;
+            border-radius: 5px;
+            background-color: #4b5563;
+            color: white;
+        }
+        button {
+            background-color: #3b82f6;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #1f2937;
+            border: 1px solid #4b5563;
+        }
+        .success { border-color: #10b981; background-color: #064e3b; }
+        .error { border-color: #ef4444; background-color: #7f1d1d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Provider Dashboard Test</h1>
+        <p>This tool helps test the provider dashboard without backend dependencies.</p>
+        
+        <h3>Step 1: Create Mock Provider User</h3>
+        <button onclick="createMockUser()">Create Mock Provider User</button>
+        
+        <h3>Step 2: Test Provider Dashboard</h3>
+        <button onclick="testProviderDashboard()">Navigate to Provider Dashboard</button>
+        
+        <h3>Step 3: Clear Auth Data</h3>
+        <button onclick="clearAuthData()">Clear All Auth Data</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        function showResult(message, isSuccess = true) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.innerHTML = message;
+        }
+
+        function createMockUser() {
+            try {
+                // Create a mock provider user
+                const mockUser = {
+                    _id: 'mock-provider-id',
+                    name: 'Test Provider',
+                    email: 'provider@test.com',
+                    role: 'provider',
+                    isAvailable: true,
+                    profileImage: null,
+                    phone: '+1234567890',
+                    address: {
+                        street: '123 Test Street',
+                        city: 'Test City',
+                        state: 'Test State',
+                        zipCode: '12345',
+                        coordinates: {
+                            latitude: 28.6139,
+                            longitude: 77.2090
+                        }
+                    }
+                };
+
+                const mockToken = 'mock-jwt-token-for-testing';
+
+                // Store in localStorage
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                localStorage.setItem('token', mockToken);
+
+                showResult(`
+                    ✅ Mock provider user created successfully!<br>
+                    📧 Email: ${mockUser.email}<br>
+                    👤 Role: ${mockUser.role}<br>
+                    🔑 Token: ${mockToken}<br>
+                    <br>
+                    The provider dashboard should now load with mock data.
+                `, true);
+
+            } catch (error) {
+                showResult(`❌ Error creating mock user: ${error.message}`, false);
+            }
+        }
+
+        function testProviderDashboard() {
+            try {
+                // Check if user exists
+                const user = localStorage.getItem('user');
+                const token = localStorage.getItem('token');
+
+                if (!user || !token) {
+                    showResult('❌ No user found. Please create a mock user first.', false);
+                    return;
+                }
+
+                const userData = JSON.parse(user);
+                
+                if (userData.role !== 'provider') {
+                    showResult('❌ User is not a provider. Please create a mock provider user.', false);
+                    return;
+                }
+
+                showResult(`
+                    ✅ Auth data verified!<br>
+                    👤 User: ${userData.name}<br>
+                    📧 Email: ${userData.email}<br>
+                    🔑 Token: ${token}<br>
+                    <br>
+                    🚀 Redirecting to provider dashboard...
+                `, true);
+
+                // Redirect to provider dashboard
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:5173/provider/dashboard';
+                }, 2000);
+
+            } catch (error) {
+                showResult(`❌ Error testing dashboard: ${error.message}`, false);
+            }
+        }
+
+        function clearAuthData() {
+            try {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+                localStorage.removeItem('adminUser');
+                localStorage.removeItem('adminToken');
+
+                showResult(`
+                    ✅ All auth data cleared!<br>
+                    🧹 Removed: user, token, adminUser, adminToken<br>
+                    <br>
+                    You can now test the login flow from scratch.
+                `, true);
+
+            } catch (error) {
+                showResult(`❌ Error clearing auth data: ${error.message}`, false);
+            }
+        }
+
+        // Check current auth state on page load
+        window.onload = function() {
+            const user = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            
+            if (user && token) {
+                try {
+                    const userData = JSON.parse(user);
+                    showResult(`
+                        ℹ️ Current auth state:<br>
+                        👤 User: ${userData.name}<br>
+                        📧 Email: ${userData.email}<br>
+                        🎭 Role: ${userData.role}<br>
+                        🔑 Token: ${token ? 'Present' : 'Missing'}
+                    `, true);
+                } catch (error) {
+                    showResult('⚠️ Invalid user data in localStorage', false);
+                }
+            } else {
+                showResult('ℹ️ No auth data found. Ready to create mock user.', true);
+            }
+        };
+    </script>
+</body>
+</html>
