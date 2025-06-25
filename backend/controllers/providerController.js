@@ -56,6 +56,19 @@ const updateProfile = async (req, res) => {
       updateData.workingHours = JSON.parse(updateData.workingHours);
     }
 
+    // Synchronize location coordinates for geospatial queries
+    if (updateData.address && updateData.address.coordinates) {
+      const { latitude, longitude } = updateData.address.coordinates;
+
+      if (latitude && longitude) {
+        // Update the GeoJSON location field for geospatial queries
+        updateData.address.location = {
+          type: 'Point',
+          coordinates: [longitude, latitude] // GeoJSON format: [lng, lat]
+        };
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },

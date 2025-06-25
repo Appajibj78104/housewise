@@ -254,6 +254,8 @@ router.get('/nearby-providers', async (req, res) => {
       .select('name email profileImage bio experience rating address')
       .limit(parseInt(limit));
 
+    console.log(`🔍 Found ${providers.length} providers for query:`, JSON.stringify(providerQuery, null, 2));
+
     // Get services for each provider and add category filtering
     const providersWithServices = await Promise.all(
       providers.map(async (provider) => {
@@ -269,6 +271,8 @@ router.get('/nearby-providers', async (req, res) => {
 
         const services = await Service.find(serviceQuery)
           .select('title category subcategory pricing rating');
+
+        console.log(`📋 Provider ${provider.name} has ${services.length} services matching query:`, serviceQuery);
 
         // Skip providers with no services in the requested category
         if (category && services.length === 0) {
@@ -774,6 +778,76 @@ router.delete('/:id', authenticateToken, validateObjectId('id'), async (req, res
     res.status(500).json({
       success: false,
       message: 'Failed to delete service',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   GET /api/services/debug-providers
+// @desc    Debug endpoint to check provider locations and services
+// @access  Public (for debugging)
+router.get('/debug-providers', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    let query = { role: 'housewife' };
+    if (email) {
+      query.email = email;
+    }
+
+    const providers = await User.find(query)
+      .select('name email address isActive isApproved')
+      .limit(10);
+
+    const debugData = await Promise.all(
+      providers.map(async (provider) => {
+        // Get services for this provider
+        const services = await Service.find({
+          provider: provider._id,
+          isActive: true,
+          isApproved: true
+        }).select('title category isActive isApproved createdAt');
+
+        return {
+          provider: {
+            id: provider._id,
+            name: provider.name,
+            email: provider.email,
+            isActive: provider.isActive,
+            isApproved: provider.isApproved,
+            hasCoordinates: !!(provider.address?.coordinates?.latitude && provider.address?.coordinates?.longitude),
+            hasGeoLocation: !!(provider.address?.location?.coordinates),
+            coordinates: provider.address?.coordinates,
+            geoLocation: provider.address?.location,
+            city: provider.address?.city,
+            state: provider.address?.state
+          },
+          services: services.map(service => ({
+            id: service._id,
+            title: service.title,
+            category: service.category,
+            isActive: service.isActive,
+            isApproved: service.isApproved,
+            createdAt: service.createdAt
+          })),
+          serviceCount: services.length
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        providers: debugData,
+        total: debugData.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Debug providers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to debug providers',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
