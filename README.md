@@ -87,10 +87,10 @@ A comprehensive web application connecting skilled housewives with local custome
    Create `.env` file in the backend directory:
    ```env
    PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/housewife-services
-   JWT_SECRET=your-super-secret-jwt-key
-   JWT_EXPIRE=7d
-   NODE_ENV=development
+   MONGODB_URI
+   JWT_SECRET
+   JWT_EXPIRE
+   NODE_ENV
    ```
 
    Create `.env` file in the frontend directory:
