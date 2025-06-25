@@ -654,4 +654,77 @@ router.post('/logout', requireAdmin, (req, res) => {
   });
 });
 
+// @route   POST /api/admin/recalculate-ratings
+// @desc    Recalculate all service and provider ratings
+// @access  Private (Admin only)
+router.post('/recalculate-ratings', async (req, res) => {
+  try {
+    const Service = require('../models/Service');
+    const Review = require('../models/Review');
+    const User = require('../models/User');
+
+    let servicesUpdated = 0;
+    let providersUpdated = 0;
+
+    // Recalculate service ratings
+    const services = await Service.find({});
+    for (const service of services) {
+      const reviews = await Review.find({
+        service: service._id,
+        isVisible: true
+      });
+
+      if (reviews.length > 0) {
+        const avgRating = reviews.reduce((sum, r) => sum + r.rating.overall, 0) / reviews.length;
+        service.rating.average = Math.round(avgRating * 10) / 10;
+        service.rating.count = reviews.length;
+      } else {
+        service.rating.average = 0;
+        service.rating.count = 0;
+      }
+
+      await service.save();
+      servicesUpdated++;
+    }
+
+    // Recalculate provider ratings
+    const providers = await User.find({ role: 'housewife' });
+    for (const provider of providers) {
+      const reviews = await Review.find({
+        provider: provider._id,
+        isVisible: true
+      });
+
+      if (reviews.length > 0) {
+        const avgRating = reviews.reduce((sum, r) => sum + r.rating.overall, 0) / reviews.length;
+        provider.rating.average = Math.round(avgRating * 10) / 10;
+        provider.rating.count = reviews.length;
+      } else {
+        provider.rating.average = 0;
+        provider.rating.count = 0;
+      }
+
+      await provider.save();
+      providersUpdated++;
+    }
+
+    res.json({
+      success: true,
+      message: 'Ratings recalculated successfully',
+      data: {
+        servicesUpdated,
+        providersUpdated
+      }
+    });
+
+  } catch (error) {
+    console.error('Recalculate ratings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to recalculate ratings',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 module.exports = router;

@@ -568,6 +568,28 @@ const createReview = async (req, res) => {
 
     await review.save();
 
+    // Update service rating
+    const Service = require('../models/Service');
+    const service = await Service.findById(booking.service);
+    if (service) {
+      await service.updateRating(rating.overall);
+    }
+
+    // Update provider rating
+    const User = require('../models/User');
+    const provider = await User.findById(booking.provider);
+    const allReviews = await Review.find({
+      provider: booking.provider,
+      isVisible: true
+    });
+
+    if (allReviews.length > 0) {
+      const avgRating = allReviews.reduce((sum, r) => sum + r.rating.overall, 0) / allReviews.length;
+      provider.rating.average = Math.round(avgRating * 10) / 10;
+      provider.rating.count = allReviews.length;
+      await provider.save();
+    }
+
     // Mark booking as reviewed
     booking.isReviewed = true;
     await booking.save();
@@ -707,6 +729,36 @@ const updateReview = async (req, res) => {
     if (cons) review.cons = cons;
 
     await review.save();
+
+    // Recalculate service rating
+    const Service = require('../models/Service');
+    const allServiceReviews = await Review.find({
+      service: review.service,
+      isVisible: true
+    });
+
+    if (allServiceReviews.length > 0) {
+      const avgRating = allServiceReviews.reduce((sum, r) => sum + r.rating.overall, 0) / allServiceReviews.length;
+      await Service.findByIdAndUpdate(review.service, {
+        'rating.average': Math.round(avgRating * 10) / 10,
+        'rating.count': allServiceReviews.length
+      });
+    }
+
+    // Recalculate provider rating
+    const User = require('../models/User');
+    const allProviderReviews = await Review.find({
+      provider: review.provider,
+      isVisible: true
+    });
+
+    if (allProviderReviews.length > 0) {
+      const avgRating = allProviderReviews.reduce((sum, r) => sum + r.rating.overall, 0) / allProviderReviews.length;
+      await User.findByIdAndUpdate(review.provider, {
+        'rating.average': Math.round(avgRating * 10) / 10,
+        'rating.count': allProviderReviews.length
+      });
+    }
 
     const populatedReview = await Review.findById(review._id)
       .populate('provider', 'name profileImage')
