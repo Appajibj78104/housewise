@@ -81,8 +81,9 @@ const ServiceMapDiscovery = () => {
 
           // Get location information via reverse geocoding
           try {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://housewise-backend.onrender.com/api';
             const response = await fetch(
-              `http://localhost:5000/api/services/reverse-geocode?lat=${position.coords.latitude}&lng=${position.coords.longitude}`
+              `${API_BASE_URL}/services/reverse-geocode?lat=${position.coords.latitude}&lng=${position.coords.longitude}`
             );
             const data = await response.json();
 
@@ -139,7 +140,8 @@ const ServiceMapDiscovery = () => {
         params.category = currentFilters.category;
       }
 
-      const response = await fetch(`http://localhost:5000/api/services/nearby-providers?${new URLSearchParams(params)}`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://housewise-backend.onrender.com/api';
+      const response = await fetch(`${API_BASE_URL}/services/nearby-providers?${new URLSearchParams(params)}`);
       const data = await response.json();
 
       if (data.success) {

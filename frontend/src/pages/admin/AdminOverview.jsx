@@ -22,7 +22,8 @@ const AdminOverview = () => {
   const fetchDashboardData = async () => {
     try {
       const adminToken = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/dashboard', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://housewise-backend.onrender.com/api';
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json',
